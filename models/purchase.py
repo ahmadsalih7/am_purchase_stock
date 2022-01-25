@@ -33,10 +33,11 @@ class PurchaseOrder(models.Model):
                     picking = StockPicking.create(res)
                 else:
                     picking = pickings[0]
-                move_id = order.order_line._create_stock_moves(picking).id
+                move = order.order_line._create_stock_moves(picking)
                 picking.write({
-                    'move_ids': [(4, move_id, 0)],
+                    'move_ids': [(4, move.id, 0)],
                 })
+                move._action_confirm()
 
     @api.model
     def _prepare_picking(self):
@@ -77,7 +78,6 @@ class PurchaseOrderLine(models.Model):
             'origin': self.order_id.name,
             'warehouse_id': self.order_id.picking_type_id.warehouse_id.id,
         }
-        print(res)
         return res
 
     def _create_stock_moves(self, picking):
