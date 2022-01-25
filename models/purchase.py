@@ -38,6 +38,7 @@ class PurchaseOrder(models.Model):
                     'move_ids': [(4, move.id, 0)],
                 })
                 move._action_confirm()
+                move._action_assign()
 
     @api.model
     def _prepare_picking(self):
