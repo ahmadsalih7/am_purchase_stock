@@ -69,7 +69,7 @@ class PurchaseOrderLine(models.Model):
         res = {
             'name': self.name or '',
             'product_id': self.product_id.id,
-            'product_uom_qty': self.product_qty,
+            'product_quantity': self.product_qty,
             'create_date': self.order_id.date_order,
             'picking_id': picking.id,
             'state': 'draft',
