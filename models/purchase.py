@@ -17,6 +17,7 @@ class PurchaseOrder(models.Model):
                                       domain="['|', ('warehouse_id', '=', False),"
                                              "('warehouse_id.company_id', '=', company_id)]",
                                       help="This will determine operation type of incoming shipment")
+    picking_count = fields.Integer(compute='_compute_picking', string='Picking count', default=0, store=True)
 
     def button_approve(self):
         result = super(PurchaseOrder, self).button_approve()
@@ -31,6 +32,7 @@ class PurchaseOrder(models.Model):
                 if not pickings:
                     res = order._prepare_picking()
                     picking = StockPicking.create(res)
+                    order.write({'picking_ids': [(6, False, [picking.id])]})
                 else:
                     picking = pickings[0]
                 move = order.order_line._create_stock_moves(picking)
@@ -51,6 +53,26 @@ class PurchaseOrder(models.Model):
             'company_id': self.company_id.id,
         }
 
+    @api.depends('order_line.move_ids.picking_id')
+    def _compute_picking(self):
+        for order in self:
+            order.picking_count = len(order.order_line.mapped('move_ids.picking_id'))
+
+    def action_view_picking(self):
+        result = self.env.ref('am_stock.action_overview').read()[0]
+        pick_ids = self.mapped('picking_ids')
+        # choose the view_mode accordingly
+        if not pick_ids or len(pick_ids) > 1:
+            result['domain'] = "[('id','in',%s)]" % (pick_ids.ids)
+        elif len(pick_ids) == 1:
+            res = self.env.ref('am_stock.view_am_stock_picking_form', False)
+            form_view = [(res and res.id or False, 'form')]
+            if 'views' in result:
+                result['views'] = form_view + [(state, view) for state, view in result['views'] if view != 'form']
+            else:
+                result['views'] = form_view
+            result['res_id'] = pick_ids.id
+        return result
 
 class PurchaseOrderLine(models.Model):
     _inherit = 'am_purchase.order.line'

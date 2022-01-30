@@ -12,6 +12,7 @@
     # always loaded
     'data': [
         'security/ir.model.access.csv',
+        'views/purchase_views.xml',
     ],
     'installable': True,
     'auto_install': True,

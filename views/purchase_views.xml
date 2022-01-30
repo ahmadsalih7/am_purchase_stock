@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="purchase_order_view_form_inherit" model="ir.ui.view">
+        <field name="name">purchase.order.form.inherit</field>
+        <field name="model">am_purchase.order</field>
+        <field name="inherit_id" ref="am_purchase.view_purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button type="object"
+                        name="action_view_picking"
+                        class="oe_stat_button"
+                        icon="fa-truck" attrs="{'invisible':[('picking_ids','=',[])]}">
+                    <field name="picking_count" widget="statinfo" string="Receipt" help="Incoming Shipments"/>
+                    <field name="picking_ids" invisible="1"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>
