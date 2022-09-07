@@ -76,12 +76,15 @@ class PurchaseOrder(models.Model):
             order.picking_count = len(order.order_line.mapped('move_ids.picking_id'))
 
     def action_view_picking(self):
-        result = self.env.ref('am_stock.action_overview').read()[0]
+        # Retrieve the action the opens the tree view
+        result = self.env.ref('am_stock.action_inventory_picking').read()[0]
         pick_ids = self.mapped('picking_ids')
-        # choose the view_mode accordingly
+        # choose the view_mode accordingly whether it's the tree view or a form view
         if not pick_ids or len(pick_ids) > 1:
+            # if they are more than one, open the filtered tree view
             result['domain'] = "[('id','in',%s)]" % (pick_ids.ids)
         elif len(pick_ids) == 1:
+            # if it's only one result, open a form view
             res = self.env.ref('am_stock.view_am_stock_picking_form', False)
             form_view = [(res and res.id or False, 'form')]
             if 'views' in result:
