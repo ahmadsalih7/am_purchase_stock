@@ -9,6 +9,7 @@ class PurchaseOrder(models.Model):
 
     @api.model
     def _get_picking_type(self):
+        """ As this is a purchase operation then the picking type must be incoming (Delivery) """
         return self.env['am_stock.picking.type'].search([('code', '=', 'incoming')], limit=1)
 
     picking_ids = fields.Many2many('am_stock.picking', string='Receptions', copy=False, store=True)
@@ -20,35 +21,51 @@ class PurchaseOrder(models.Model):
     picking_count = fields.Integer(compute='_compute_picking', string='Picking count', default=0, store=True)
 
     def button_approve(self):
+        """ Add additional functionality to create stock picking after approval """
+        # Call the super approve function
         result = super(PurchaseOrder, self).button_approve()
+        # Call create picking funtion
         self._create_picking()
         return result
 
     def _create_picking(self):
+        """ Create picking from the purchase order"""
         StockPicking = self.env['am_stock.picking']
+        # loop over the orders
         for order in self:
+            # Check the products type
             if any([ptype in ['product', 'consu'] for ptype in order.order_line.mapped('product_id.type')]):
+                # Check if any stock picking are already generated and not done
                 pickings = order.picking_ids.filtered(lambda x: x.state not in ('done', 'cancel'))
+                # if No picking are there then create
                 if not pickings:
+                    # Populate the picking object
                     res = order._prepare_picking()
+                    # Create picking object using the populated object
                     picking = StockPicking.create(res)
+                    # Append the created object to the order
                     order.write({'picking_ids': [(6, False, [picking.id])]})
                 else:
                     picking = pickings[0]
-                move = order.order_line._create_stock_moves(picking)
-                picking.write({
-                    'move_ids': [(4, move.id, 0)],
-                })
-                move._action_confirm()
-                move._action_assign()
+                # then create the stock move using the order line (products)
+                moves = order.order_line._create_stock_moves(picking)
+                for move in moves:
+                    picking.write({
+                        'move_lines': [(4, move.id, 0)],
+                    })
+                    move._action_confirm()
+                    move._action_assign()
+        return True
 
     @api.model
     def _prepare_picking(self):
+        """ Use purchase order data to populate picking object"""
         return {
             'picking_type_id': self.picking_type_id.id,
             'partner_id': self.partner_id.id,
             'user_id': False,
             'date': self.date_order,
+            # Let the origin be the purchase order name (Seq.)
             'origin': self.name,
             'company_id': self.company_id.id,
         }
@@ -74,16 +91,17 @@ class PurchaseOrder(models.Model):
             result['res_id'] = pick_ids.id
         return result
 
+
 class PurchaseOrderLine(models.Model):
+    """ Add stock related functionality to Purchase module """
     _inherit = 'am_purchase.order.line'
 
+    # Creating Stock move based on order lines.
     move_ids = fields.One2many('am_stock.move', 'purchase_line_id', string='Reservation', readonly=True,
                                ondelete='set null', copy=False)
 
     def _prepare_stock_moves(self, picking):
-        """ Prepare the stock moves data for one order line. This function returns a list of
-        dictionary ready to be used in stock.move's create()
-        """
+        """ Populate stock move object with purchase order line's data """
         self.ensure_one()
         res = []
         if self.product_id.type not in ['product', 'consu']:
@@ -106,5 +124,5 @@ class PurchaseOrderLine(models.Model):
     def _create_stock_moves(self, picking):
         values = []
         for line in self:
-            values = line._prepare_stock_moves(picking)
-            return self.env['am_stock.move'].create(values)
+            values.append(line._prepare_stock_moves(picking))
+        return self.env['am_stock.move'].create(values)
